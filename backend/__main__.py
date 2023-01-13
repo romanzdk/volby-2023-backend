@@ -11,28 +11,23 @@ import xmltodict
 import settings.base
 import settings.static
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("backend")
 
-
-def strip_accents(s):
-    return "".join(
-        c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn"
-    )
+logging.basicConfig(level = logging.INFO)
+logger = logging.getLogger('volby-backend')
 
 
 def get_connection():
-    return psycopg2.connect(
-        database=settings.base.DATABASE,
-        host=settings.base.DB_HOST,
-        port=settings.base.DB_PORT,
-        user=settings.base.DB_USER,
-        password=settings.base.DB_PASSWORD,
-    )
+	return psycopg2.connect(
+		database = settings.base.DATABASE,
+		host = settings.base.DB_HOST,
+		port = settings.base.DB_PORT,
+		user = settings.base.DB_USER,
+		password = settings.base.DB_PASSWORD,
+	)
 
 
-def get_insert_results_query(data):
-    return f"""
+def get_insert_overall_results_query(data):
+	return f'''
         INSERT INTO overall_over_time VALUES 
         (
             '{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}'::TIMESTAMP, 
@@ -45,11 +40,11 @@ def get_insert_results_query(data):
             {data['hilser']},
             {data['zima']}
         );
-    """
+    '''
 
 
 def get_insert_additional_info_query(data):
-    return f"""
+	return f'''
         INSERT INTO additional_info VALUES 
         (
             '{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}'::TIMESTAMP,
@@ -64,15 +59,15 @@ def get_insert_additional_info_query(data):
             {float(data['@PLATNE_HLASY'])},
             {float(data['@PLATNE_HLASY_PROC'])}
         );
-    """
+    '''
 
 
-def get_insert_kraje_query(kraj, details):
-    return f"""
+def get_insert_region_query(region, details):
+	return f'''
         INSERT INTO kraje VALUES 
         (
             '{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}'::TIMESTAMP,
-            '{kraj}',
+            '{region}',
             {details[0]['babis']},
             {details[0]['nerudova']},
             {details[0]['pavel']},
@@ -83,95 +78,91 @@ def get_insert_kraje_query(kraj, details):
             {details[0]['zima']},
             {details[1]}
         );
-    """
+    '''
 
 
 def save_data_to_db(connection, query):
-    cursor = connection.cursor()
-    try:
-        cursor.execute(query)
-        logger.info("Successfully inserted data %s", query)
-    except psycopg2.Error as error:
-        logger.error("Failed to insert records into DB: %s", error)
-        if connection:
-            cursor.close()
-            connection.close()
-            logger.info("PostgreSQL connection is closed")
+	cursor = connection.cursor()
+	try:
+		cursor.execute(query)
+		logger.info('Successfully inserted data %s', query)
+	except psycopg2.Error as error:
+		logger.error('Failed to insert records into DB: %s', error)
+		if connection:
+			cursor.close()
+			connection.close()
+			logger.info('PostgreSQL connection is closed')
 
 
-def get_kraje():
-    time.sleep(1)
-    try:
-        resp = requests.get(
-            url=settings.static.KRAJE_URL, headers=settings.static.EXTRA_HEADERS
-        )
-    except:
-        time.sleep(1)
-        resp = requests.get(
-            url=settings.static.KRAJE_URL, headers=settings.static.EXTRA_HEADERS
-        )
-    parsed_response = xmltodict.parse(resp.content)
-    result = {}
-    kraje = parsed_response["VYSLEDKY_KRAJMESTA"]["KRAJ"]
-    for kraj in kraje:
-        candidates = kraj["CELKEM"]["HODN_KAND"]
-        candidates_info = {}
-        for candidate in candidates:
-            key = strip_accents(
-                settings.static.CANDIDATE_MAP[int(candidate["@PORADOVE_CISLO"])].lower()
-            )
-            candidates_info[key] = float(candidate["@HLASY"])
-        zpracovano = float(kraj["CELKEM"]["UCAST"]["@OKRSKY_ZPRAC_PROC"])
-        result[kraj["@NAZ_KRAJ"]] = candidates_info, zpracovano
+def _send_request(url):
+	time.sleep(1)  # there were some issues with sending requests
 
-    return result
+	def _try(url):
+		return requests.get(url = url, headers = settings.static.EXTRA_HEADERS)
+
+	try:
+		resp = _try(url)
+	except (ConnectionError, ConnectionResetError, requests.exceptions.ConnectionError) as error:
+		logger.error('There was an error sending request: %s', error)
+		time.sleep(1)
+		logger.info('Requesting again ...')
+		resp = _try(url)
+	return xmltodict.parse(resp.content)
 
 
-def get_data() -> tuple[dict[str, Any], dict[str, str]]:
-    time.sleep(1)
-    try:
-        resp = requests.get(
-            url=settings.static.URL, headers=settings.static.EXTRA_HEADERS
-        )
-    except:
-        time.sleep(1)
-        resp = requests.get(
-            url=settings.static.URL, headers=settings.static.EXTRA_HEADERS
-        )
-    parsed_response = xmltodict.parse(resp.content)
-    candidates = parsed_response["VYSLEDKY"]["CR"]["KANDIDAT"]
-    formatted_data = {}
-    for candidate in candidates:
-        key = strip_accents(candidate["@PRIJMENI"].lower())
-        formatted_data[key] = float(candidate["@HLASY_PROC_1KOLO"])
+def get_regions_data():
+	resp = _send_request(settings.static.KRAJE_URL)
+	regions = resp['VYSLEDKY_KRAJMESTA']['KRAJ']
+	result = {}
+	for region in regions:
+		candidates = region['CELKEM']['HODN_KAND']
+		candidates_info = {}
+		for candidate in candidates:
+			candidate_name = settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])]
+			candidates_info[candidate_name] = float(candidate['@HLASY'])
+		zpracovano = float(region['CELKEM']['UCAST']['@OKRSKY_ZPRAC_PROC'])
+		result[region['@NAZ_KRAJ']] = candidates_info, zpracovano
 
-    return formatted_data, parsed_response["VYSLEDKY"]["CR"]["UCAST"]
+	return result
+
+
+def get_overall_data() -> tuple[dict[str, Any], dict[str, str]]:
+	resp = _send_request(settings.static.URL)
+	candidates = resp['VYSLEDKY']['CR']['KANDIDAT']
+	overall_results = {}
+	for candidate in candidates:
+		candidate_name = settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])]
+		overall_results[candidate_name] = float(candidate['@HLASY_PROC_1KOLO'])
+
+	return overall_results, resp['VYSLEDKY']['CR']['UCAST']
 
 
 def main():
-    results, additional_info = get_data()
-    kraje = get_kraje()
-    connection = get_connection()
+	overall_results, additional_info = get_overall_data()
+	regions = get_regions_data()
+	connection = get_connection()
 
-    query1 = get_insert_results_query(results)
-    save_data_to_db(connection, query1)
+	# overall results
+	query = get_insert_overall_results_query(overall_results)
+	save_data_to_db(connection, query)
 
-    query2 = get_insert_additional_info_query(additional_info)
-    save_data_to_db(connection, query2)
+	# additional info data
+	query = get_insert_additional_info_query(additional_info)
+	save_data_to_db(connection, query)
 
-    for kraj, details in kraje.items():
-        query = get_insert_kraje_query(kraj, details)
-        save_data_to_db(connection, query)
+	# candidate vs. region
+	for region, details in regions.items():
+		query = get_insert_region_query(region, details)
+		save_data_to_db(connection, query)
 
-    connection.commit()
-    logger.info("Commited")
-    connection.close()
-    logger.info("Closed")
+	connection.commit()
+	connection.close()
+	logger.info('PostgreSQL connection is closed')
 
 
-if __name__ == "__main__":
-    logger.info("Starting app...")
-    while True:
-        main()
-        logger.info("Sleeping...")
-        time.sleep(120)  # sleep 2 mins
+if __name__ == '__main__':
+	logger.info('Starting app...')
+	while True:
+		main()
+		logger.info('Sleeping...')
+		time.sleep(120)  # sleep 2 mins
