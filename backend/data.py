@@ -1,29 +1,34 @@
 from typing import Any
 import datetime
 import logging
+import time
 
 import psycopg2
 import pytz
 import requests
-import requests.adapters
-import urllib3.util.retry
 import xmltodict
 
 import settings.base
 import settings.static
 
 
+logging.basicConfig(level = settings.base.LOG_LEVEL)
+logger = logging.getLogger('volby-backend-data')
+
 ##### Get data
 
 
 def _send_request(url: str) -> dict[Any, Any]:
-	with requests.Session() as session:
-		adapter = requests.adapters.HTTPAdapter(
-			max_retries = urllib3.util.retry.Retry(connect = settings.static.RETRIES, backoff_factor = 0.1)
-		)
-		session.mount('http://', adapter)
-		session.mount('https://', adapter)
-		resp = session.get(url = url, headers = settings.static.EXTRA_HEADERS)
+	retries = 0
+	while retries < settings.static.RETRIES:
+		try:
+			retries += 1
+			logger.debug('Sending request, try no: %s', retries)
+			resp = requests.get(url, timeout = 5)
+			break
+		except (requests.exceptions.ConnectionError) as error:
+			logger.warning('Failed to send request, error: %s', error)
+			time.sleep(3)
 
 	return xmltodict.parse(resp.content)
 

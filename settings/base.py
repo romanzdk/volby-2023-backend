@@ -1,7 +1,7 @@
 import decouple
 
 
-LOG_LEVEL = decouple.config('LOG_LEVEL', default = 'INFO')
+LOG_LEVEL = decouple.config('LOG_LEVEL', default = 'DEBUG')
 
 DB_HOST = decouple.config('DB_HOST', default = 'localhost')
 DB_PORT = decouple.config('DB_PORT', cast = int, default = '5432')
