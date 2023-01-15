@@ -16,3 +16,4 @@ CANDIDATE_MAP = {
 	8: 'divis',
 	9: 'hilser',
 }
+RETRIES = 10
