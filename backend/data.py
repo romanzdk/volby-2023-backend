@@ -68,6 +68,36 @@ def get_regions_data() -> dict[str, tuple[dict[str, float], float]]:
 	return result
 
 
+def get_last_batch(connection) -> int:
+	cursor = connection.cursor()
+	query = 'SELECT last_batch FROM last_batch;'
+	cursor.execute(query)
+	result = cursor.fetchone()[0]
+	cursor.close()
+	return result
+
+
+def get_cities_data(last_batch: int) -> set[tuple[str, str, int]]:
+	resp = _send_request(settings.static.CITIES_URL + str(last_batch))
+	result = set()
+	try:
+		cities = resp['VYSLEDKY_OKRSKY']['OKRSEK']
+	except KeyError:
+		return result
+
+	result = set()
+	for city in cities:
+		for candidate in city['HLASY_OKRSEK']:
+			result.add(
+				(
+					city['@CIS_OBEC'],
+					settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])],
+					int(candidate['@HLASY']),
+				)
+			)
+	return result
+
+
 ##### Queries
 
 
@@ -111,7 +141,7 @@ def get_insert_additional_info_query(data: dict[str, float]) -> str:
     '''
 
 
-def get_insert_region_query(region: str, details: tuple[dict[str, float], float]):
+def get_insert_region_query(region: str, details: tuple[dict[str, float], float]) -> str:
 	return f'''
         INSERT INTO kraje VALUES 
         (
@@ -126,6 +156,17 @@ def get_insert_region_query(region: str, details: tuple[dict[str, float], float]
             {details[0].get('hilser',0)},
             {details[0].get('zima',0)},
             {details[1]}
+        );
+    '''
+
+
+def get_insert_city_query(record: tuple[str, str, int]) -> str:
+	return f'''
+        INSERT INTO cities VALUES 
+        (
+            '{record[0]}',
+            '{record[1]}',
+            '{record[2]}'
         );
     '''
 

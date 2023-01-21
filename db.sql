@@ -231,3 +231,14 @@ VALUES (
 		0,
 		0
 	);
+CREATE TABLE cities (
+	"Město" VARCHAR,
+	"Jméno" VARCHAR,
+	"Hlasů" NUMERIC
+);
+CREATE TABLE last_batch (last_batch INT);
+INSERT INTO last_batch
+VALUES (1);
+CREATE TABLE city_mapping (OBEC VARCHAR, NAZEVOBCE VARCHAR);
+\ COPY city_mapping
+FROM 'data/obce.csv' DELIMITER ';' CSV HEADER;
