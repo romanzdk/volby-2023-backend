@@ -68,18 +68,18 @@ def get_regions_data() -> dict[str, tuple[dict[str, float], float]]:
 	return result
 
 
-def get_last_batch(connection) -> int:
+def get_last_batch(connection: 'psycopg2.connection') -> int:
 	cursor = connection.cursor()
 	query = 'SELECT last_batch FROM last_batch;'
 	cursor.execute(query)
-	result = cursor.fetchone()[0]
+	result = int(cursor.fetchone()[0])
 	cursor.close()
 	return result
 
 
 def get_cities_data(last_batch: int) -> set[tuple[str, str, int]]:
 	resp = _send_request(settings.static.CITIES_URL + str(last_batch))
-	result = set()
+	result: set[tuple[str, str, int]] = set()
 	try:
 		cities = resp['VYSLEDKY_OKRSKY']['OKRSEK']
 	except KeyError:
@@ -174,7 +174,7 @@ def get_insert_city_query(record: tuple[str, str, int]) -> str:
 ##### Save data
 
 
-def get_connection():
+def get_connection() -> 'psycopg2.connection':
 	return psycopg2.connect(
 		database = settings.base.DATABASE,
 		host = settings.base.DB_HOST,
@@ -184,7 +184,7 @@ def get_connection():
 	)
 
 
-def save_data_to_db(connection, query: str, logger: logging.Logger):
+def save_data_to_db(connection: 'psycopg2.connection', query: str, logger: logging.Logger) -> None:
 	cursor = connection.cursor()
 	try:
 		cursor.execute(query)
