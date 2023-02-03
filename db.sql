@@ -34,4 +34,212 @@ CREATE TABLE kraje (
 	"Hilšer" NUMERIC,
 	"Zima" NUMERIC,
 	"Zpracováno" NUMERIC
-)
+);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Hlavní město Praha',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Královéhradecký kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Středočeský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Pardubický kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Karlovarský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Plzeňský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Zlínský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Liberecký kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Ústecký kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Jihočeský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Moravskoslezský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Jihomoravský kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Olomoucký kraj',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+INSERT INTO kraje
+VALUES (
+		'2023-01-28 10:00',
+		'Kraj Vysočina',
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0
+	);
+CREATE TABLE cities (
+	"Město" VARCHAR,
+	"Jméno" VARCHAR,
+	"Hlasů" NUMERIC
+);
+CREATE TABLE last_batch (last_batch INT);
+INSERT INTO last_batch
+VALUES (1);
+CREATE TABLE city_mapping (OBEC VARCHAR, NAZEVOBCE VARCHAR);
+-- run using psql
+\ COPY city_mapping
+FROM 'data/obce.csv' DELIMITER ';' CSV HEADER;

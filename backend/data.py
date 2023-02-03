@@ -39,10 +39,14 @@ def get_overall_data() -> tuple[dict[str, float], dict[str, float]]:
 	overall_results = {}
 	for candidate in candidates:
 		candidate_name = settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])]
-		overall_results[candidate_name] = float(candidate['@HLASY_PROC_1KOLO']) / 100
+		try:
+			overall_results[candidate_name] = float(candidate['@HLASY_PROC_2KOLO']) / 100
+		except KeyError:
+			# not all candidates have `HLASY_PROC_2KOLO` attribute
+			pass
 
 	additional_data = {}
-	for k, v in resp['VYSLEDKY']['CR']['UCAST'].items():
+	for k, v in resp['VYSLEDKY']['CR']['UCAST'][1].items():
 		additional_data[k] = float(v)
 
 	return overall_results, additional_data
@@ -64,6 +68,52 @@ def get_regions_data() -> dict[str, tuple[dict[str, float], float]]:
 	return result
 
 
+def get_last_batch(connection: 'psycopg2.connection') -> int:
+	cursor = connection.cursor()
+	query = 'SELECT last_batch FROM last_batch;'
+	cursor.execute(query)
+	result = int(cursor.fetchone()[0])
+	cursor.close()
+	return result
+
+
+def get_cities_data(last_batch: int) -> set[tuple[str, str, int]]:
+	resp = _send_request(settings.static.CITIES_URL + str(last_batch))
+	result: set[tuple[str, str, int]] = set()
+	try:
+		cities = resp['VYSLEDKY_OKRSKY']['OKRSEK']
+	except KeyError:
+		return result
+
+	result = set()
+	if not isinstance(cities, dict):
+		for city in cities:
+			for candidate in city['HLASY_OKRSEK']:
+				try:
+					result.add(
+						(
+							city['@CIS_OBEC'],
+							settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])],
+							int(candidate['@HLASY']),
+						)
+					)
+				except TypeError:
+					pass
+	else:
+		try:
+			candidate = cities['HLASY_OKRSEK']
+			result.add(
+				(
+					candidate['@CIS_OBEC'],
+					settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])],
+					int(candidate['@HLASY']),
+				)
+			)
+		except TypeError:
+			pass
+	return result
+
+
 ##### Queries
 
 
@@ -76,14 +126,14 @@ def get_insert_overall_results_query(data: dict[str, Any]) -> str:
         INSERT INTO overall_over_time VALUES 
         (
             '{_get_current_timestamp()}'::TIMESTAMP,
-            {data['babis']},
-            {data['nerudova']},
-            {data['pavel']},
-            {data['basta']},
-            {data['divis']},
-            {data['fischer']},
-            {data['hilser']},
-            {data['zima']}
+            {data.get('babis',0)},
+            {data.get('nerudova',0)},
+            {data.get('pavel',0)},
+            {data.get('basta',0)},
+            {data.get('divis',0)},
+            {data.get('fischer',0)},
+            {data.get('hilser',0)},
+            {data.get('zima',0)}
         );
     '''
 
@@ -107,21 +157,32 @@ def get_insert_additional_info_query(data: dict[str, float]) -> str:
     '''
 
 
-def get_insert_region_query(region: str, details: tuple[dict[str, float], float]):
+def get_insert_region_query(region: str, details: tuple[dict[str, float], float]) -> str:
 	return f'''
         INSERT INTO kraje VALUES 
         (
             '{_get_current_timestamp()}'::TIMESTAMP,
             '{region}',
-            {details[0]['babis']},
-            {details[0]['nerudova']},
-            {details[0]['pavel']},
-            {details[0]['basta']},
-            {details[0]['divis']},
-            {details[0]['fischer']},
-            {details[0]['hilser']},
-            {details[0]['zima']},
+            {details[0].get('babis',0)},
+            {details[0].get('nerudova',0)},
+            {details[0].get('pavel',0)},
+            {details[0].get('basta',0)},
+            {details[0].get('divis',0)},
+            {details[0].get('fischer',0)},
+            {details[0].get('hilser',0)},
+            {details[0].get('zima',0)},
             {details[1]}
+        );
+    '''
+
+
+def get_insert_city_query(record: tuple[str, str, int]) -> str:
+	return f'''
+        INSERT INTO cities VALUES 
+        (
+            '{record[0]}',
+            '{record[1]}',
+            '{record[2]}'
         );
     '''
 
@@ -129,7 +190,7 @@ def get_insert_region_query(region: str, details: tuple[dict[str, float], float]
 ##### Save data
 
 
-def get_connection():
+def get_connection() -> 'psycopg2.connection':
 	return psycopg2.connect(
 		database = settings.base.DATABASE,
 		host = settings.base.DB_HOST,
@@ -139,7 +200,7 @@ def get_connection():
 	)
 
 
-def save_data_to_db(connection, query: str, logger: logging.Logger):
+def save_data_to_db(connection: 'psycopg2.connection', query: str, logger: logging.Logger) -> None:
 	cursor = connection.cursor()
 	try:
 		cursor.execute(query)
