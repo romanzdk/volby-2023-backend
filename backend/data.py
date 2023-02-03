@@ -86,15 +86,31 @@ def get_cities_data(last_batch: int) -> set[tuple[str, str, int]]:
 		return result
 
 	result = set()
-	for city in cities:
-		for candidate in city['HLASY_OKRSEK']:
+	if not isinstance(cities, dict):
+		for city in cities:
+			for candidate in city['HLASY_OKRSEK']:
+				try:
+					result.add(
+						(
+							city['@CIS_OBEC'],
+							settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])],
+							int(candidate['@HLASY']),
+						)
+					)
+				except TypeError:
+					pass
+	else:
+		try:
+			candidate = cities['HLASY_OKRSEK']
 			result.add(
 				(
-					city['@CIS_OBEC'],
+					candidate['@CIS_OBEC'],
 					settings.static.CANDIDATE_MAP[int(candidate['@PORADOVE_CISLO'])],
 					int(candidate['@HLASY']),
 				)
 			)
+		except TypeError:
+			pass
 	return result
 
 
